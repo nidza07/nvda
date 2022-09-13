@@ -35,6 +35,7 @@ import extensionPoints
 from . import profileUpgrader
 from .configSpec import confspec
 from .featureFlag import (
+	FeatureFlag,
 	_transformSpec_AddFeatureFlagDefault,
 	_validateConfig_featureFlag,
 )
@@ -1243,8 +1244,20 @@ class AggregatedSection(object):
 		except KeyError:
 			pass
 		else:
-			if val == curVal:
-				# The value isn't different, so there's nothing to do.
+			if (
+				(
+					# FeatureFlag overrides __eq___
+					not isinstance(val, FeatureFlag)
+					and val == curVal
+				)
+				or (
+					# FeatureFlag overrides __eq___
+					isinstance(val, FeatureFlag)
+					and val.value == curVal.value
+				)
+			):
+				# If the value is unchanged, do not update
+				# or mark the profile as dirty
 				return
 
 		# Set this value in the most recently activated profile.
