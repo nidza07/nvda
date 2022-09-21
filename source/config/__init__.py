@@ -35,11 +35,16 @@ import extensionPoints
 from . import profileUpgrader
 from .configSpec import confspec
 from .featureFlag import (
-	FeatureFlag,
 	_transformSpec_AddFeatureFlagDefault,
 	_validateConfig_featureFlag,
 )
-from typing import Any, Dict, List, Optional, Set
+from typing import (
+	Any,
+	Dict,
+	List,
+	Optional,
+	Set,
+)
 import NVDAState
 
 
@@ -1057,6 +1062,7 @@ class ConfigValidationData(object):
 	# the default value, used when config is missing.
 	default = None  # converted to the appropriate type
 
+
 class AggregatedSection(object):
 	"""A view of a section of configuration which aggregates settings from all active profiles.
 	"""
@@ -1068,6 +1074,11 @@ class AggregatedSection(object):
 		#: The relevant section in all of the profiles.
 		self.profiles = profiles
 		self._cache = {}
+
+	@staticmethod
+	def _isSection(val: Any) -> bool:
+		"""Checks if a given value or spec is a section a config profile."""
+		return isinstance(val, dict)
 
 	def __getitem__(self, key, checkValidity=True):
 		# Try the cache first.
@@ -1083,7 +1094,7 @@ class AggregatedSection(object):
 
 		spec = self._spec.get(key)
 		foundSection = False
-		if isinstance(spec, dict):
+		if self._isSection(spec):
 			foundSection = True
 
 		# Walk through the profiles looking for the key.
@@ -1096,7 +1107,7 @@ class AggregatedSection(object):
 				# Indicate that this key doesn't exist in this profile.
 				subProfiles.append(None)
 				continue
-			if isinstance(val, dict):
+			if self._isSection(val):
 				foundSection = True
 				subProfiles.append(val)
 			else:
@@ -1209,11 +1220,10 @@ class AggregatedSection(object):
 
 	def __setitem__(self, key, val):
 		spec = self._spec.get(key) if self.spec else None
-		if isinstance(spec, dict) and not isinstance(val, dict):
+		if self._isSection(spec) and not self._isSection(val):
 			raise ValueError("Value must be a section")
 
-		if isinstance(spec, dict) or isinstance(val, dict):
-			# The value is a section.
+		if self._isSection(spec) or self._isSection(val):
 			# Update the profile.
 			updateSect = self._getUpdateSection()
 			updateSect[key] = val
@@ -1244,20 +1254,13 @@ class AggregatedSection(object):
 		except KeyError:
 			pass
 		else:
-			if (
-				(
-					# FeatureFlag overrides __eq___
-					not isinstance(val, FeatureFlag)
-					and val == curVal
-				)
-				or (
-					# FeatureFlag overrides __eq___
-					isinstance(val, FeatureFlag)
-					and val.value == curVal.value
-				)
-			):
+			if self._isSection(val) or self._isSection(curVal):
+				# If value is a section, continue to update
+				pass
+			elif str(val) == str(curVal):
+				# Check str comparison as this is what is written to the config.
 				# If the value is unchanged, do not update
-				# or mark the profile as dirty
+				# or mark the profile as dirty.
 				return
 
 		# Set this value in the most recently activated profile.
