@@ -1077,7 +1077,7 @@ class AggregatedSection(object):
 
 	@staticmethod
 	def _isSection(val: Any) -> bool:
-		"""Checks if a given value or spec is a section a config profile."""
+		"""Checks if a given value or spec is a section of a config profile."""
 		return isinstance(val, dict)
 
 	def __getitem__(self, key, checkValidity=True):
